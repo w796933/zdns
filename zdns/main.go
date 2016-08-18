@@ -26,6 +26,7 @@ import (
 	_ "github.com/zmap/zdns/modules/a"
 	_ "github.com/zmap/zdns/modules/aaaa"
 	_ "github.com/zmap/zdns/modules/alookup"
+	_ "github.com/zmap/zdns/modules/any"
 	_ "github.com/zmap/zdns/modules/axfr"
 	_ "github.com/zmap/zdns/modules/cname"
 	_ "github.com/zmap/zdns/modules/dmarc"
@@ -34,6 +35,7 @@ import (
 	_ "github.com/zmap/zdns/modules/ns"
 	_ "github.com/zmap/zdns/modules/nslookup"
 	_ "github.com/zmap/zdns/modules/ptr"
+	_ "github.com/zmap/zdns/modules/soa"
 	_ "github.com/zmap/zdns/modules/spf"
 	_ "github.com/zmap/zdns/modules/txt"
 	_ "github.com/zmap/zdns/modules/zone"
@@ -47,7 +49,7 @@ func main() {
 	flags.IntVar(&gc.Threads, "threads", 1000, "number of lightweight go threads")
 	flags.IntVar(&gc.GoMaxProcs, "go-processes", 0, "number of OS processes (GOMAXPROCS)")
 	flags.StringVar(&gc.NamePrefix, "prefix", "", "name to be prepended to what's passed in (e.g., www.)")
-	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from alexa top million download")
+	flags.BoolVar(&gc.AlexaFormat, "alexa", false, "is input file from Alexa Top Million download")
 	flags.StringVar(&gc.InputFilePath, "input-file", "-", "names to read")
 	flags.StringVar(&gc.OutputFilePath, "output-file", "-", "comma-delimited list of DNS servers to use")
 	flags.StringVar(&gc.MetadataFilePath, "metadata-file", "", "where should JSON metadata be saved")

@@ -1,6 +1,7 @@
 package miekg
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -9,10 +10,73 @@ import (
 )
 
 type Answer struct {
-	Ttl    uint32 `json:"ttl"`
-	Type   string `json:"type"`
-	Name   string `json:"name"`
-	Answer string `json:"data"`
+	Ttl        uint32
+	Type       string
+	Name       string
+	Answer     string
+	Preference uint16
+	Ns         string
+	Mbox       string
+	Serial     uint32
+	Refresh    uint32
+	Retry      uint32
+	Expire     uint32
+	Minttl     uint32
+}
+
+func (a *Answer) MarshalJSON() ([]byte, error) {
+	// different types of DNS records have different sets of values. unfortunately,
+	// 0 is a real value for many of them so we can't jsut omitempty. So here we are
+	// with a custom marshaller.
+	if a.Type == "MX" {
+		return json.Marshal(&struct {
+			Ttl        uint32 `json:"ttl"`
+			Type       string `json:"type"`
+			Name       string `json:"name"`
+			Answer     string `json:"data"`
+			Preference uint16 `json:"preference"`
+		}{
+			Ttl:    a.Ttl,
+			Type:   a.Type,
+			Name:   a.Name,
+			Answer: a.Answer,
+		})
+	} else if a.Type == "SOA" {
+		return json.Marshal(&struct {
+			Ttl     uint32 `json:"ttl"`
+			Type    string `json:"type"`
+			Name    string `json:"name"`
+			Ns      string `json:"ns"`
+			Mbox    string `json:"mbox"`
+			Serial  uint32 `json:"serial"`
+			Refresh uint32 `json:"refresh"`
+			Retry   uint32 `json:"retry"`
+			Expire  uint32 `json:"expire"`
+			Minttl  uint32 `json:"min_ttl"`
+		}{
+			Ttl:     a.Ttl,
+			Type:    a.Type,
+			Name:    a.Name,
+			Ns:      a.Ns,
+			Mbox:    a.Mbox,
+			Serial:  a.Serial,
+			Refresh: a.Refresh,
+			Retry:   a.Retry,
+			Expire:  a.Expire,
+			Minttl:  a.Minttl,
+		})
+	}
+	return json.Marshal(&struct {
+		Ttl    uint32 `json:"ttl"`
+		Type   string `json:"type"`
+		Name   string `json:"name"`
+		Answer string `json:"data"`
+	}{
+		Ttl:    a.Ttl,
+		Type:   a.Type,
+		Name:   a.Name,
+		Answer: a.Answer,
+	})
 }
 
 // result to be returned by scan of host
@@ -52,19 +116,32 @@ func dotName(name string) string {
 func ParseAnswer(ans dns.RR) *Answer {
 	var retv *Answer = nil
 	if a, ok := ans.(*dns.A); ok {
-		retv = &Answer{a.Hdr.Ttl, dns.Type(a.Hdr.Rrtype).String(), a.Hdr.Name, a.A.String()}
+		retv = &Answer{Ttl: a.Hdr.Ttl, Type: dns.Type(a.Hdr.Rrtype).String(), Name: a.Hdr.Name, Answer: a.A.String()}
 	} else if aaaa, ok := ans.(*dns.AAAA); ok {
-		retv = &Answer{aaaa.Hdr.Ttl, dns.Type(aaaa.Hdr.Rrtype).String(), aaaa.Hdr.Name, aaaa.AAAA.String()}
+		retv = &Answer{Ttl: aaaa.Hdr.Ttl, Type: dns.Type(aaaa.Hdr.Rrtype).String(), Name: aaaa.Hdr.Name, Answer: aaaa.AAAA.String()}
 	} else if cname, ok := ans.(*dns.CNAME); ok {
-		retv = &Answer{cname.Hdr.Ttl, dns.Type(cname.Hdr.Rrtype).String(), cname.Hdr.Name, cname.Target}
+		retv = &Answer{Ttl: cname.Hdr.Ttl, Type: dns.Type(cname.Hdr.Rrtype).String(), Name: cname.Hdr.Name, Answer: cname.Target}
 	} else if txt, ok := ans.(*dns.TXT); ok {
-		retv = &Answer{txt.Hdr.Ttl, dns.Type(txt.Hdr.Rrtype).String(), txt.Hdr.Name, strings.Join(txt.Txt, "\n")}
+		retv = &Answer{Ttl: txt.Hdr.Ttl, Type: dns.Type(txt.Hdr.Rrtype).String(), Name: txt.Hdr.Name, Answer: strings.Join(txt.Txt, "\n")}
 	} else if ns, ok := ans.(*dns.NS); ok {
-		retv = &Answer{ns.Hdr.Ttl, dns.Type(ns.Hdr.Rrtype).String(), ns.Hdr.Name, ns.Ns}
+		retv = &Answer{Ttl: ns.Hdr.Ttl, Type: dns.Type(ns.Hdr.Rrtype).String(), Name: ns.Hdr.Name, Answer: ns.Ns}
 	} else if mx, ok := ans.(*dns.MX); ok {
-		retv = &Answer{mx.Hdr.Ttl, dns.Type(mx.Hdr.Rrtype).String(), mx.Hdr.Name, mx.Mx}
+		retv = &Answer{Ttl: mx.Hdr.Ttl, Type: dns.Type(mx.Hdr.Rrtype).String(), Name: mx.Hdr.Name, Answer: mx.Mx, Preference: mx.Preference}
 	} else if ptr, ok := ans.(*dns.PTR); ok {
-		retv = &Answer{ptr.Hdr.Ttl, dns.Type(ptr.Hdr.Rrtype).String(), ptr.Hdr.Name, ptr.Ptr}
+		retv = &Answer{Ttl: ptr.Hdr.Ttl, Type: dns.Type(ptr.Hdr.Rrtype).String(), Name: ptr.Hdr.Name, Answer: ptr.Ptr}
+	} else if soa, ok := ans.(*dns.SOA); ok {
+		retv = &Answer{
+			Ttl:     soa.Hdr.Ttl,
+			Type:    dns.Type(soa.Hdr.Rrtype).String(),
+			Name:    soa.Hdr.Name,
+			Ns:      strings.TrimSuffix(soa.Ns, "."),
+			Mbox:    soa.Mbox,
+			Serial:  soa.Serial,
+			Refresh: soa.Refresh,
+			Retry:   soa.Retry,
+			Expire:  soa.Expire,
+			Minttl:  soa.Minttl,
+		}
 	}
 	if retv != nil {
 		retv.Name = strings.TrimSuffix(retv.Name, ".")
